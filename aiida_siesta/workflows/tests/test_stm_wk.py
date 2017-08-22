@@ -54,7 +54,7 @@ def execute(args):
         print "Exception report: {}".format(exception)
         return
 
-    stm_code = Code.get_from_string("plstm-4.0@rinaldo")
+    stm_code = Code.get_from_string("plstm-neu@neu")
     
     try:
         protocol = args.protocol

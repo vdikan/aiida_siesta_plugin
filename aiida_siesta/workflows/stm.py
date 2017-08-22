@@ -74,7 +74,8 @@ class SiestaSTMWorkChain(WorkChain):
                 'electronic_temperature': "25.0 meV",
                 'md-type-of-run': "cg",
                 'md-num-cg-steps': 10,
-                'pseudo_familyname': 'lda-ag',
+                # 'pseudo_familyname': 'lda-ag',
+                'pseudo_familyname': 'test_psf_family',
                 # Future expansion. Add basis info, caveats, etc
                 'atomic_heuristics': {
                     'H': { 'cutoff': 100 },
@@ -97,7 +98,8 @@ class SiestaSTMWorkChain(WorkChain):
                 'electronic_temperature': "25.0 meV",
                 'md-type-of-run': "cg",
                 'md-num-cg-steps': 8,
-                'pseudo_familyname': 'lda-ag',
+                # 'pseudo_familyname': 'lda-ag',
+                'pseudo_familyname': 'test_psf_family',
                 # Future expansion. Add basis info, caveats, etc
                 'atomic_heuristics': {
                     'H': { 'cutoff': 50 },
