@@ -20,9 +20,13 @@ standard_output_list = [
 ]  ## leave svec for later
 
 
-def parse_xml_data_array(xml_elem, dtype):
-    return np.array(xml_elem.text.replace("\n", "").split(),
-                    dtype=dtype)
+def text_to_array(s, dtype):
+    return np.array(s.replace("\n", "").split(), dtype=dtype)
+
+
+# def parse_xml_data_array(xml_elem, dtype):
+#     return np.array(xml_elem.text.replace("\n", "").split(),
+#                     dtype=dtype)
 
 
 def get_parsed_xml_doc(xml_path):
@@ -346,8 +350,10 @@ class SiestaParser(Parser):
         # result_list.append((self.get_linkname_pdos(), pdos_data))
 
         if pdos_xml_path is not None:
+            pdos = self.get_pdos(pdos_xml_path)
+            result_list.append(('pdos_info', pdos))
             pdos_data = self.get_pdos_data(pdos_xml_path)
-            result_list.append((self.get_linkname_pdos(), pdos_data))
+            result_list.append(('pdos_data', pdos_data))
 
         return successful, result_list
 
@@ -547,19 +553,52 @@ class SiestaParser(Parser):
 
         return (bands, coords)
 
-    def get_pdos_data(self, pdos_xml_path):
+    def get_pdos(self, pdos_xml_path):
         import xml.etree.ElementTree as ET
         from aiida.orm.data.parameter import ParameterData
         pdos_data = ParameterData()
         pdos_dict = {}
+
         tree = ET.parse(pdos_xml_path)
         root = tree.getroot()
 
-        pdos_dict['energy_values'] = parse_xml_data_array(root.find('energy_values'),
-                                                          float)
-        pdos_dict['something'] = 'anything'
+        pdos_dict['nspin'] = int(root.find('nspin').text)
+        ewin = root.find('energy_values')
+        pdos_dict['energy_values'] = {
+            'units': ewin.get('units'),
+            'data': text_to_array(ewin.text, float),
+        }
+        orbitals_list = []
+        for orbital in root.findall('orbital'):
+            od = {
+                'index': int(orbital.get('index')),
+                'atom_index': int(orbital.get('atom_index')),
+                'species': orbital.get('species'),
+                'position': text_to_array(orbital.get("position"), float),
+                'n': int(orbital.get('n')),
+                'l': int(orbital.get('l')),
+                'm': int(orbital.get('m')),
+                'z': int(orbital.get('z')),
+                # 'data': text_to_array(orbital.find('data').text, float),
+            }
+            orbitals_list.append(od)
+        pdos_dict['orbitals'] = orbitals_list
 
         pdos_data.set_dict(pdos_dict)
+        return pdos_data
+
+    def get_pdos_data(self, pdos_xml_path):
+        import xml.etree.ElementTree as ET
+        from aiida.orm.data.array import ArrayData
+
+        tree = ET.parse(pdos_xml_path)
+        root = tree.getroot()
+
+        odata = [text_to_array(orbital.find('data').text, float)
+                 for orbital in root.findall('orbital')]
+
+        pdos_data = ArrayData()
+        pdos_data.set_array('data', np.array(odata))
         return pdos_data
 
 
