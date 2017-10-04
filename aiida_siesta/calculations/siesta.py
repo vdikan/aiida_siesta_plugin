@@ -53,6 +53,7 @@ class SiestaCalculation(JobCalculation):
         self._DEFAULT_XML_FILE = 'aiida.xml'
         self._DEFAULT_MESSAGES_FILE = 'MESSAGES'
         self._DEFAULT_BANDS_FILE = 'aiida.bands'
+        self._DEFAULT_PDOS_XML_FILE = 'pdos.xml'
 
         self._PSEUDO_SUBFOLDER = './'
         self._OUTPUT_SUBFOLDER = './'
@@ -62,6 +63,7 @@ class SiestaCalculation(JobCalculation):
         self._XML_FILE_NAME = 'aiida.xml'
         self._MESSAGES_FILE_NAME = 'MESSAGES'
         self._BANDS_FILE_NAME = 'aiida.bands'
+        self._PDOS_XML_FILE_NAME = 'pdos.xml'
 
         # in restarts, it will copy from the parent the following
         # (fow now, just the density matrix file)
@@ -222,6 +224,7 @@ class SiestaCalculation(JobCalculation):
             if not isinstance(bandskpoints, KpointsData):
                 raise InputValidationError(
                     "kpoints for bands is not of type KpointsData")
+
 
         pseudos = {}
         # I create here a dictionary that associates each kind name to a pseudo
@@ -553,6 +556,10 @@ class SiestaCalculation(JobCalculation):
         calcinfo.retrieve_list.append(self._MESSAGES_FILE_NAME)
         if flagbands:
             calcinfo.retrieve_list.append(self._BANDS_FILE_NAME)
+
+        # PDOS!!
+        if settings:
+            calcinfo.retrieve_list.append(self._PDOS_XML_FILE_NAME)
 
         # Any other files specified in the settings dictionary
         settings_retrieve_list = settings_dict.pop('ADDITIONAL_RETRIEVE_LIST',

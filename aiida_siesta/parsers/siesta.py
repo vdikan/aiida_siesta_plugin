@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 from aiida.parsers.parser import Parser
 from aiida_siesta.calculations.siesta import SiestaCalculation
 
 __copyright__ = u"Copyright (c), 2015, ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE (Theory and Simulation of Materials (THEOS) and National Centre for Computational Design and Discovery of Novel Materials (NCCR MARVEL)), Switzerland and ROBERT BOSCH LLC, USA. All rights reserved."
 __license__ = "MIT license, see LICENSE.txt file"
 __version__ = "0.9.7"
-__contributors__ = "Andrius Merkys, Giovanni Pizzi, Victor Garcia-Suarez, Alberto Garcia, Emanuele Bosoni"
+__contributors__ = "Andrius Merkys, Giovanni Pizzi, Victor Garcia-Suarez, Alberto Garcia, Emanuele Bosoni, Vladimir Dikan"
 
 # -*- coding: utf-8 -*-
 
@@ -17,6 +18,11 @@ standard_output_list = [
     'siesta:FreeE', 'siesta:E_KS', 'siesta:Ebs', 'siesta:E_Fermi',
     'siesta:stot'
 ]  ## leave svec for later
+
+
+def parse_xml_data_array(xml_elem, dtype):
+    return np.array(xml_elem.text.replace("\n", "").split(),
+                    dtype=dtype)
 
 
 def get_parsed_xml_doc(xml_path):
@@ -237,7 +243,7 @@ class SiestaParser(Parser):
                 "Input calc must be a SiestaCalculation")
 
     def _get_output_nodes(self, output_path, messages_path, xml_path,
-                          bands_path):
+                          bands_path, pdos_xml_path):
         """
         Extracts output nodes from the standard output and standard error
         files. (And XML file)
@@ -314,10 +320,9 @@ class SiestaParser(Parser):
 
         if forces is not None and stress is not None:
             from aiida.orm.data.array import ArrayData
-            import numpy
             arraydata = ArrayData()
-            arraydata.set_array('forces', numpy.array(forces))
-            arraydata.set_array('stress', numpy.array(stress))
+            arraydata.set_array('forces', np.array(forces))
+            arraydata.set_array('stress', np.array(stress))
             result_list.append((self.get_linkname_outarray(), arraydata))
 
         # Parse band-structure information if available
@@ -335,6 +340,15 @@ class SiestaParser(Parser):
             bandsparameters = ParameterData(dict={"kp_coordinates": coords})
             result_list.append((self.get_linkname_bandsparameters(), bandsparameters))
 
+        # Parse PDOS information if available
+        # from aiida.orm.data.parameter import ParameterData
+        # pdos_data = ParameterData(dict={'path': pdos_xml_path})
+        # result_list.append((self.get_linkname_pdos(), pdos_data))
+
+        if pdos_xml_path is not None:
+            pdos_data = self.get_pdos_data(pdos_xml_path)
+            result_list.append((self.get_linkname_pdos(), pdos_data))
+
         return successful, result_list
 
     def parse_with_retrieved(self, retrieved):
@@ -350,9 +364,10 @@ class SiestaParser(Parser):
         messages_path = None
         xml_path = None
         bands_path = None
+        pdos_xml_path = None
+
         try:
-            output_path, messages_path, xml_path, bands_path = self._fetch_output_files(
-                retrieved)
+            output_path, messages_path, xml_path, bands_path, pdos_xml_path = self._fetch_output_files(retrieved)
         except InvalidOperation:
             raise
         except IOError as e:
@@ -364,7 +379,7 @@ class SiestaParser(Parser):
             return False, ()
 
         successful, out_nodes = self._get_output_nodes(
-            output_path, messages_path, xml_path, bands_path)
+            output_path, messages_path, xml_path, bands_path, pdos_xml_path)
 
         return successful, out_nodes
 
@@ -398,6 +413,7 @@ class SiestaParser(Parser):
         messages_path = None
         xml_path = None
         bands_path = None
+        pdos_xml_path = None
 
         if self._calc._DEFAULT_OUTPUT_FILE in list_of_files:
             output_path = os.path.join(
@@ -412,8 +428,14 @@ class SiestaParser(Parser):
         if self._calc._DEFAULT_BANDS_FILE in list_of_files:
             bands_path = os.path.join(
                 out_folder.get_abs_path('.'), self._calc._DEFAULT_BANDS_FILE)
+        if self._calc._DEFAULT_PDOS_XML_FILE in list_of_files:
+            pdos_xml_path = os.path.join(
+                out_folder.get_abs_path('.'), self._calc._DEFAULT_PDOS_XML_FILE)
 
-        return output_path, messages_path, xml_path, bands_path
+        # Careful with that!
+        # pdos_xml_path = os.path.join(out_folder.get_abs_path('.'), 'pdos.xml')
+
+        return output_path, messages_path, xml_path, bands_path, pdos_xml_path
 
     def get_warnings_from_file(self, messages_path):
         """
@@ -465,7 +487,6 @@ class SiestaParser(Parser):
         # The parsing is different depending on whether I have Bands or Points.
         # I recognise these two situations by looking at bandskpoints.label
         # (like I did in the plugin)
-        import numpy as np
         from aiida.common.exceptions import InputValidationError
         from aiida.common.exceptions import ValidationError
         tottx = []
@@ -526,6 +547,22 @@ class SiestaParser(Parser):
 
         return (bands, coords)
 
+    def get_pdos_data(self, pdos_xml_path):
+        import xml.etree.ElementTree as ET
+        from aiida.orm.data.parameter import ParameterData
+        pdos_data = ParameterData()
+        pdos_dict = {}
+        tree = ET.parse(pdos_xml_path)
+        root = tree.getroot()
+
+        pdos_dict['energy_values'] = parse_xml_data_array(root.find('energy_values'),
+                                                          float)
+        pdos_dict['something'] = 'anything'
+
+        pdos_data.set_dict(pdos_dict)
+        return pdos_data
+
+
     def get_linkname_outstructure(self):
         """
         Returns the name of the link to the output_structure
@@ -555,3 +592,6 @@ class SiestaParser(Parser):
         X-axis data for bands. Maybe should use ArrayData (db-integrity?).
         """
         return 'bands_parameters'
+
+    def get_linkname_pdos(self):
+        return 'pdos_data'
